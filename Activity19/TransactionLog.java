@@ -1,0 +1,84 @@
+package Activity19;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class TransactionLog {
+
+    private static final String FILE_PATH = "data/transactions.ser";
+
+    private static class AppendableObjectOutputStream
+            extends ObjectOutputStream {
+
+        public AppendableObjectOutputStream(OutputStream out)
+                throws IOException {
+            super(out);
+        }
+
+        @Override
+        protected void writeStreamHeader() throws IOException {
+            // Do not write another header when appending.
+        }
+    }
+
+    public synchronized void log(TransactionCommand cmd)
+            throws IOException {
+
+        File file = new File(FILE_PATH);
+
+        if (file.getParentFile() != null) {
+            file.getParentFile().mkdirs();
+        }
+
+        boolean isNew = !file.exists() || file.length() == 0;
+
+        try (ObjectOutputStream out = isNew
+                ? new ObjectOutputStream(new FileOutputStream(file))
+                : new AppendableObjectOutputStream(
+                    new FileOutputStream(file, true))) {
+
+            out.writeObject(cmd);
+            out.flush();
+        }
+    }
+
+    public synchronized List<TransactionCommand> readAll()
+            throws IOException, ClassNotFoundException {
+
+        List<TransactionCommand> list = new ArrayList<>();
+
+        File file = new File(FILE_PATH);
+
+        if (!file.exists() || file.length() == 0) {
+            return list;
+        }
+
+        try (ObjectInputStream in =
+                new ObjectInputStream(new FileInputStream(file))) {
+
+            while (true) {
+                try {
+                    Object obj = in.readObject();
+
+                    if (obj instanceof TransactionCommand) {
+                        list.add((TransactionCommand) obj);
+                    }
+
+                } catch (EOFException e) {
+                    break;
+                }
+            }
+        }
+
+        return list;
+    }
+
+    public synchronized void clear() {
+        File file = new File(FILE_PATH);
+
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+}
